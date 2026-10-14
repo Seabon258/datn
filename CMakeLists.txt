@@ -64,7 +64,7 @@ install(TARGETS
     ${PROJECT_NAME}_node 
     DESTINATION lib/${PROJECT_NAME})
 
-install(DIRECTORY launch params 
+install(DIRECTORY launch params config
     DESTINATION share/${PROJECT_NAME})
 
 if(BUILD_TESTING)

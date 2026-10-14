@@ -1,7 +1,7 @@
 hclidar_driver_ros2_node:
   ros__parameters:
     frame_id: "laser_frame"
-    lidar_model: "X2M"
+    lidar_model: "X2A"
     port: "/dev/ttyUSB0"
     ignore_array: ""
     baudrate: 115200
@@ -10,6 +10,7 @@ hclidar_driver_ros2_node:
     sample_rate: 9
     abnormal_check_count: 4
     resolution_fixed: true
+    fixed_points: 500
     reversion: true
     inverted: true
     auto_reconnect: true

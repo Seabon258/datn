@@ -232,6 +232,15 @@ int rtn = 0;
   node->declare_parameter("range_min", 0.08f);
   node->get_parameter("range_min", range_min);
 
+  // slam_toolbox yêu cầu mọi scan có cùng số điểm -> chia góc thành số bin cố định
+  bool resolution_fixed = true;
+  node->declare_parameter("resolution_fixed", true);
+  node->get_parameter("resolution_fixed", resolution_fixed);
+
+  int fixed_points = 500;
+  node->declare_parameter("fixed_points", 500);
+  node->get_parameter("fixed_points", fixed_points);
+
 
   rclcpp::WallRate loop_rate(100);
 
@@ -263,7 +272,8 @@ int rtn = 0;
                         scan_msg.header.frame_id = frame_id;
                         scan_msg.angle_min = angle_min; 
                         scan_msg.angle_max = angle_max; 
-                        scan_msg.angle_increment = (scan_msg.angle_max - scan_msg.angle_min)/(lstG.size()- 1);       
+                        size_t num_points = resolution_fixed ? (size_t)fixed_points : lstG.size();
+                        scan_msg.angle_increment = (scan_msg.angle_max - scan_msg.angle_min)/(num_points - 1);
                         
                        // uint64_t scan_time = m_PointTime * (lstG.size() - 1);
                         //scan_msg.scan_time =  static_cast<double>(scan_time * 1.0 / 1e9);
@@ -274,12 +284,12 @@ int rtn = 0;
                         //uint64_t time_offset_ns = end_time.toNSec()-start_time.toNSec();
                         //printf("end_time-start_time ns = %ld , diff=%f \n", time_offset_ns , time_offset_ns/1000000000.f);
                         scan_msg.scan_time = static_cast<double>((end_time.nanoseconds()-start_time.nanoseconds())/1000000000.f);
-                        scan_msg.time_increment =  scan_msg.scan_time/ (double)(lstG.size() - 1);
-                        
+                        scan_msg.time_increment =  scan_msg.scan_time/ (double)(num_points - 1);
+
                         scan_msg.range_min = range_min;
                         scan_msg.range_max = range_max;
-                        scan_msg.ranges.resize(lstG.size());
-                        scan_msg.intensities.resize(lstG.size());  
+                        scan_msg.ranges.assign(num_points, 0.0f);
+                        scan_msg.intensities.assign(num_points, 0.0f);
 
 						start_time = end_time;
                         
@@ -296,25 +306,24 @@ int rtn = 0;
                                 rad_angel=-1*lstG[i].dAngle*3.141592 /180.0f;
                             }
                             
-                            int index = std::ceil((rad_angel - angle_min)/scan_msg.angle_increment);
+                            int index = std::lround((rad_angel - angle_min)/scan_msg.angle_increment);
 
                             //printf("Main: index=%d , ranges=%d, valid=%d,angle=%f,angle_increment=%f,angle_min=%f\n", 
                             //index,lstG[i].u16Dist,lstG[i].bValid,rad_angel,scan_msg.angle_increment,angle_min);
                             
-                            if(index >=0 && index < lstG.size()) 
+                            if(index >=0 && index < (int)num_points)
                             {
                                     //如果是无效点，即杂，则置0
-                                if(!lstG[i].bValid)
+                                if(lstG[i].bValid)
                                 {
-                                      scan_msg.ranges[index] = 0.0;
+                                    // nhiều điểm rơi vào cùng bin -> giữ điểm gần nhất
+                                    float dist = (lstG[i].u16Dist)/1000.0f;
+                                    if(scan_msg.ranges[index] == 0.0f || dist < scan_msg.ranges[index])
+                                    {
+                                        scan_msg.ranges[index] = dist;
+                                        scan_msg.intensities[index] = lstG[i].u16Gray;
+                                    }
                                 }
-                                else
-                                {
-
-                                    scan_msg.ranges[index] = (lstG[i].u16Dist)/1000.0f;
-                                }
-                                    
-                                scan_msg.intensities[index] = lstG[i].u16Gray;
 
                                 
                             }
